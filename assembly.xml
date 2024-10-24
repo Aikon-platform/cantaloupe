@@ -18,15 +18,16 @@ http://maven.apache.org/plugins/maven-assembly-plugin/assembly.html
         <fileSet>
             <directory>target</directory>
             <includes>
-                <include>cantaloupe-${project.version}.jar</include>
+                <!--<include>cantaloupe-${project.version}.jar</include>-->
+                <include>cantaloupe.jar</include>
             </includes>
             <outputDirectory>.</outputDirectory>
         </fileSet>
     </fileSets>
     <files>
         <file>
-            <source>cantaloupe.properties.sample</source>
-            <destName>cantaloupe.properties.sample</destName>
+            <source>cantaloupe.properties</source>
+            <destName>cantaloupe.properties</destName>
             <fileMode>0644</fileMode>
             <lineEnding>crlf</lineEnding>
         </file>

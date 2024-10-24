@@ -30,6 +30,7 @@ nbactions.xml
 /target
 
 .env
+cantaloupe.jar
 
 # Virtual environment files
 venv
