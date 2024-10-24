@@ -12,6 +12,8 @@ Thumbs.db
 /*.iml
 /*.ipr
 /*.iws
+*.iml
+.idea/
 
 # NetBeans stuff
 nbactions.xml
@@ -26,3 +28,16 @@ nbactions.xml
 
 # Auto-generated content
 /target
+
+.env
+
+# Virtual environment files
+venv
+.idea
+.vscode
+env
+.env/
+.venv/
+
+# Port-specific settings
+local_settings.py

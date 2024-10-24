@@ -16,12 +16,14 @@ temp_pathname =
 # !! Configures the HTTP server. (Standalone mode only.)
 http.enabled = true
 http.host = 0.0.0.0
-http.port = 8182
+http.port = HTTP_PORT
+http.http2.enabled = false
 
 # !! Configures the HTTPS server. (Standalone mode only.)
 https.enabled = false
 https.host = 0.0.0.0
 https.port = 8183
+
 
 # !! Available values are `JKS` and `PKCS12`. (Standalone mode only.)
 https.key_store_type = JKS
@@ -40,7 +42,7 @@ http.accept_queue_limit =
 # Base URI to use for internal links, such as Link headers and JSON-LD
 # @id values, in a reverse-proxy context. This should only be used when
 # X-Forwarded-* headers cannot be used instead. (See the user manual.)
-base_uri =
+base_uri = BASE_URI
 
 # Normally, slashes in a URI path component must be percent-encoded as
 # "%2F". If your proxy is not able to pass these through without decoding,
@@ -49,10 +51,20 @@ base_uri =
 # percent-encoded version in URLs.
 slash_substitute =
 
+# Parses an identifier's scale constraint suffix.
+# This key only applies to versions >= 4.1.9 and < 5.0.
+scale_constraint_suffix.pattern = -(\d+):(\d+)\b
+
+# Converts a scale constraint suffix to its URL format. {n} and {d} are the
+# numerator and denominator, respectively.
+# This key only applies to versions >= 4.1.9 and < 5.0.
+scale_constraint_suffix.format = -{n}:{d}
+
 # Maximum number of pixels to return in a response, to prevent overloading
 # the server. Requests for more pixels than this will receive an error
 # response. Set to 0 for no maximum.
-max_pixels = 10000000
+#max_pixels = 100000000
+max_pixels = 0
 
 # Maximum scale to allow (1.0 = full scale; 0 = no maximum).
 max_scale = 1.0
@@ -92,6 +104,10 @@ delegate_script.enabled = false
 # -Dcantaloupe.delegate_script VM argument, which overrides this value.
 delegate_script.pathname = delegates.rb
 
+# Enables the invocation cache, which caches method invocations and return
+# values in memory. See the user manual for more information.
+delegate_script.cache.enabled = false
+
 ###########################################################################
 # ENDPOINTS
 ###########################################################################
@@ -105,6 +121,11 @@ endpoint.iiif.2.enabled = true
 # Enables the IIIF Image API 3.x endpoint, at /iiif/3.
 endpoint.iiif.3.enabled = true
 
+# Controls the response Content-Disposition header for images. Allowed
+# values are `inline`, `attachment`, and `none`. This can be overridden
+# using the ?response-content-disposition query argument.
+endpoint.iiif.content_disposition = inline
+
 # Minimum size that will be used in info.json `sizes` keys.
 endpoint.iiif.min_size = 64
 
@@ -114,6 +135,7 @@ endpoint.iiif.min_tile_size = 512
 
 # If true, requests for sizes other than those contained in an information
 # response will be denied.
+endpoint.iiif.2.restrict_to_sizes = false
 endpoint.iiif.restrict_to_sizes = false
 
 # Enables the Control Panel, at /admin.
@@ -159,7 +181,7 @@ FilesystemSource.lookup_strategy = BasicLookupStrategy
 
 # Server-side path that will be prefixed to the identifier in the URL.
 # Trailing slash is important!
-FilesystemSource.BasicLookupStrategy.path_prefix = /home/myself/images/
+FilesystemSource.BasicLookupStrategy.path_prefix = FILE_SYSTEM_SOURCE
 
 # Server-side path or extension that will be suffixed to the identifier in
 # the URL.
@@ -330,14 +352,16 @@ JdbcSource.connection_timeout = 10
 #   on the rest of the keys in this section.
 processor.selection_strategy = AutomaticSelectionStrategy
 
-# Built-in processors are `Java2dProcessor`, TurboJpegProcessor`,
-# `KakaduNativeProcessor`, `OpenJpegProcessor`, `GrokProcessor`,`JaiProcessor`,
+# Built-in processors are `Java2dProcessor`, `GraphicsMagickProcessor`,
+# `ImageMagickProcessor`, `TurboJpegProcessor`, `KakaduNativeProcessor`,
+# `KakaduDemoProcessor`, `OpenJpegProcessor`, `JaiProcessor`,
 # `PdfBoxProcessor`, and `FfmpegProcessor`.
 # Some of these have third-party dependencies and won't work out-of-the-box.
 
 # These format-specific definitions are optional.
 processor.ManualSelectionStrategy.avi = FfmpegProcessor
 processor.ManualSelectionStrategy.bmp =
+processor.ManualSelectionStrategy.dcm = ImageMagickProcessor
 processor.ManualSelectionStrategy.flv = FfmpegProcessor
 processor.ManualSelectionStrategy.gif =
 processor.ManualSelectionStrategy.jp2 = KakaduNativeProcessor
@@ -349,6 +373,7 @@ processor.ManualSelectionStrategy.pdf = PdfBoxProcessor
 processor.ManualSelectionStrategy.png =
 processor.ManualSelectionStrategy.tif =
 processor.ManualSelectionStrategy.webm = FfmpegProcessor
+processor.ManualSelectionStrategy.webp = ImageMagickProcessor
 processor.ManualSelectionStrategy.xpm =
 
 # Fall back to this processor for any formats not assigned above.
@@ -400,6 +425,14 @@ processor.downscale_linear = false
 # Intensity of an unsharp mask from 0 to 1.
 processor.sharpen = 0
 
+# Attempts to copy source image metadata (EXIF, IPTC, XMP) into derivative
+# images. (This is not foolproof; see the user manual.)
+processor.metadata.preserve = false
+
+# Whether to auto-rotate images using the EXIF `Orientation` field.
+# The check for this field can impair performance slightly.
+processor.metadata.respect_orientation = false
+
 # Progressive JPEGs are usually more compact.
 processor.jpg.progressive = true
 
@@ -434,6 +467,30 @@ processor.imageio.xpm.reader =
 # Optional absolute path of the directory containing the FFmpeg binaries.
 # Overrides the PATH.
 FfmpegProcessor.path_to_binaries =
+
+#----------------------------------------
+# GraphicsMagickProcessor
+#----------------------------------------
+
+# !! Optional absolute path of the directory containing the GraphicsMagick
+# binary. Overrides the PATH.
+GraphicsMagickProcessor.path_to_binaries =
+
+#----------------------------------------
+# ImageMagickProcessor
+#----------------------------------------
+
+# !! Optional absolute path of the directory containing the ImageMagick
+# binary. Overrides the PATH.
+ImageMagickProcessor.path_to_binaries =
+
+#----------------------------------------
+# KakaduDemoProcessor
+#----------------------------------------
+
+# Optional absolute path of the directory containing kdu_expand.
+# Overrides the PATH.
+KakaduDemoProcessor.path_to_binaries =
 
 #----------------------------------------
 # OpenJpegProcessor
@@ -603,6 +660,10 @@ S3Cache.bucket.name =
 # !! String that will be prefixed to object keys.
 S3Cache.object_key_prefix =
 
+# !! Maximum number of concurrent HTTP connections to AWS. Leave blank to
+# use the default.
+S3Cache.max_connections =
+
 #----------------------------------------
 # AzureStorageCache
 #----------------------------------------
@@ -631,6 +692,9 @@ RedisCache.database = 0
 ###########################################################################
 # OVERLAYS
 ###########################################################################
+
+# Whether to enable overlays.
+overlays.enabled = false
 
 # Controls how overlays are configured. `BasicStrategy` will use the
 # `overlays.BasicStrategy.*` keys in this section. `ScriptStrategy` will
@@ -697,6 +761,13 @@ overlays.BasicStrategy.output_width_threshold = 400
 overlays.BasicStrategy.output_height_threshold = 300
 
 ###########################################################################
+# REDACTIONS
+###########################################################################
+
+# See the user manual for information about how redactions work.
+redaction.enabled = false
+
+###########################################################################
 # LOGGING
 ###########################################################################
 
@@ -712,14 +783,14 @@ log.application.ConsoleAppender.logstash.enabled = false
 
 # N.B.: Don't enable FileAppender and RollingFileAppender simultaneously!
 log.application.FileAppender.enabled = false
-log.application.FileAppender.logstash.enabled = false
-log.application.FileAppender.pathname = /path/to/logs/application.log
+log.application.FileAppender.pathname = LOG_PATH/application.log
 
 log.application.RollingFileAppender.enabled = false
+log.application.FileAppender.logstash.enabled = false
+log.application.RollingFileAppender.pathname = LOG_PATH/application.log
 log.application.RollingFileAppender.logstash.enabled = false
-log.application.RollingFileAppender.pathname = /path/to/logs/application.log
 log.application.RollingFileAppender.policy = TimeBasedRollingPolicy
-log.application.RollingFileAppender.TimeBasedRollingPolicy.filename_pattern = /path/to/logs/application-%d{yyyy-MM-dd}.log
+log.application.RollingFileAppender.TimeBasedRollingPolicy.filename_pattern = LOG_PATH/application-%d{yyyy-MM-dd}.log
 log.application.RollingFileAppender.TimeBasedRollingPolicy.max_history = 30
 
 # See the "SyslogAppender" section for a list of facilities:
@@ -739,13 +810,13 @@ log.application.SyslogAppender.facility = LOCAL0
 # N.B.: Don't enable FileAppender and RollingFileAppender simultaneously!
 log.error.FileAppender.enabled = false
 log.error.FileAppender.logstash.enabled = false
-log.error.FileAppender.pathname = /path/to/logs/error.log
+log.error.FileAppender.pathname = LOG_PATH/error.log
 
 log.error.RollingFileAppender.enabled = false
 log.error.RollingFileAppender.logstash.enabled = false
-log.error.RollingFileAppender.pathname = /path/to/logs/error.log
+log.error.RollingFileAppender.pathname = LOG_PATH/error.log
 log.error.RollingFileAppender.policy = TimeBasedRollingPolicy
-log.error.RollingFileAppender.TimeBasedRollingPolicy.filename_pattern = /path/to/logs/error-%d{yyyy-MM-dd}.log
+log.error.RollingFileAppender.TimeBasedRollingPolicy.filename_pattern = LOG_PATH/error-%d{yyyy-MM-dd}.log
 log.error.RollingFileAppender.TimeBasedRollingPolicy.max_history = 30
 
 #----------------------------------------
@@ -756,14 +827,14 @@ log.access.ConsoleAppender.enabled = false
 
 # N.B.: Don't enable FileAppender and RollingFileAppender simultaneously!
 log.access.FileAppender.enabled = false
-log.access.FileAppender.pathname = /path/to/logs/access.log
+log.access.FileAppender.pathname = LOG_PATH/access.log
 
 # RollingFileAppender is an alternative to using something like
 # FileAppender + logrotate.
 log.access.RollingFileAppender.enabled = false
-log.access.RollingFileAppender.pathname = /path/to/logs/access.log
+log.access.RollingFileAppender.pathname = LOG_PATH/access.log
 log.access.RollingFileAppender.policy = TimeBasedRollingPolicy
-log.access.RollingFileAppender.TimeBasedRollingPolicy.filename_pattern = /path/to/logs/access-%d{yyyy-MM-dd}.log
+log.access.RollingFileAppender.TimeBasedRollingPolicy.filename_pattern = LOG_PATH/access-%d{yyyy-MM-dd}.log
 log.access.RollingFileAppender.TimeBasedRollingPolicy.max_history = 30
 
 # See the "SyslogAppender" section for a list of facilities:
